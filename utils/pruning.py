@@ -89,7 +89,7 @@ class Pruner:
         # Calculate pruning steps: start with 50% and halve the remainder each step
         start = 0.5
         prune_steps = [sparsity - (sparsity - start) * (0.5 ** i) for i in range(steps)] + [sparsity]
-        
+        print(f"prune_steps: {prune_steps}")
         for step, target_sparsity in enumerate(prune_steps):
             if not silent:
                 print(f"SNIP-it step {step + 1}/{len(prune_steps)}: Targeting sparsity {target_sparsity:.4f}")
