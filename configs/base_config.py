@@ -14,6 +14,12 @@ class Config:
     def __init__(self):
         parser = argparse.ArgumentParser(description="Knowledge Evolution Training Approach")
         parser.add_argument(
+            "--target_samples_per_class_ratio",
+            type=float,
+            default=0.1,  # Default value (10% of samples per class)
+            help="Ratio of target samples per class to subsample the dataset (0.0 to 1.0, e.g., 0.1 for 10%)"
+        )
+        parser.add_argument(
             "--mask_schedule",
             type=str,
             default='None',
