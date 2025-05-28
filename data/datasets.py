@@ -382,7 +382,7 @@ def load_dataset_linear_eval(name, root, sample='default', **kwargs):
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-            ])
+            )])
             # Optional transform for blurred images
             transform_train_blur = transforms.Compose([
                 transforms.Resize((56, 56)),
