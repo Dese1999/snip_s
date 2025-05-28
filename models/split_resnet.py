@@ -314,7 +314,8 @@ def Split_ResNet18(cfg, progress=True):
         arch = 'resnet18'
         print('loading pretrained resnet')
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        load_state_dict(model, state_dict, strict=False)
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 def Split_ResNet18Norm(cfg, progress=True):
@@ -322,7 +323,8 @@ def Split_ResNet18Norm(cfg, progress=True):
     if cfg.pretrained == 'imagenet':
         arch = 'resnet18'
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        load_state_dict(model, state_dict, strict=False)
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 def Split_ResNet34(cfg, progress=True):
@@ -330,7 +332,8 @@ def Split_ResNet34(cfg, progress=True):
     if cfg.pretrained == 'imagenet':
         arch = 'resnet34'
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        load_state_dict(model, state_dict, strict=False)
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 def Split_ResNet50(cfg, progress=True):
@@ -339,7 +342,8 @@ def Split_ResNet50(cfg, progress=True):
         arch = 'resnet50'
         print('loading pretrained resnet')
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        load_state_dict(model, state_dict, strict=False)
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 def Split_ResNet50Norm(cfg, progress=True):
@@ -347,7 +351,8 @@ def Split_ResNet50Norm(cfg, progress=True):
     if cfg.pretrained == 'imagenet':
         arch = 'resnet50'
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        load_state_dict(model, state_dict, strict=False)
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 def Split_ResNet101(cfg, progress=True):
@@ -355,5 +360,7 @@ def Split_ResNet101(cfg, progress=True):
     if cfg.pretrained == 'imagenet':
         arch = 'resnet101'
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-        load_state_dict(model, state_dict, strict=False)
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        state_dict = {k: v for k, v in state_dict.items() if not k.startswith('fc.')}
+        model.load_state_dict(state_dict, strict=False)
     return model
