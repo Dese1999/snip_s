@@ -7,18 +7,74 @@ import logging.config
 from utils import os_utils
 from utils import log_utils
 from utils import path_utils
-
 args = None
 
 class Config:
     def __init__(self):
         parser = argparse.ArgumentParser(description="Knowledge Evolution Training Approach")
+        # Pre-training method selection
+        parser.add_argument(
+            "--pretrain_method",
+            type=str,
+            default=None,
+            choices=["moco", "dino", "simsiam", None],
+            help="Pre-training method to use: moco, simclr, simsiam, or None for no pre-training"
+        )
+        # Pre-trained weights paths
+        parser.add_argument(
+            "--moco_weights_path",
+            type=str,
+            default="/content/moco_v1_200ep_pretrain.pth.tar",
+            help="Path to MoCo pre-trained weights"
+        )
+        parser.add_argument(
+            "--dino_weights_path",
+            type=str,
+            default=" /content/dino_resnet18_cifar10.pth",
+            help="Path to Dino pre-trained weights"
+        )
+        parser.add_argument(
+            "--simsiam_weights_path",
+            type=str,
+            default="/content/simsiam-cifar10-252e1tvw-ep=999.pth",
+            help="Path to SimSiam pre-trained weights"
+        )
+        parser.add_argument(
+            "--use_dino",
+            action="store_true",
+            default=False,
+            help="Use Dino self-supervised pre-training (sets pretrain_method to dino if True)"
+        )
+        parser.add_argument(
+            "--use_simsiam",
+            action="store_true",
+            default=False,
+            help="Use SimSiam self-supervised pre-training (sets pretrain_method to byol if True)"
+        )
+        # KDloss
         parser.add_argument(
             "--target_samples_per_class_ratio",
             type=float,
             default=0.1,  # Default value (10% of samples per class)
             help="Ratio of target samples per class to subsample the dataset (0.0 to 1.0, e.g., 0.1 for 10%)"
         )
+        parser.add_argument(
+            '--kd_temperature', 
+            type=float, 
+            default=4.0, 
+            help='Temperature for KD loss')
+        parser.add_argument(
+            '--kd_alpha', 
+            type=float, 
+            default=0.9, 
+            help='Weight for KD loss')
+        ## Teacher model 
+        parser.add_argument(
+            '--big_arch', 
+            default='Split_ResNet50',
+            type=str, 
+          help='teacher model architecture')
+
         parser.add_argument(
             "--mask_schedule",
             type=str,
