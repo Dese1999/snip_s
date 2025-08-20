@@ -22,6 +22,12 @@ class Config:
         )
         # Pre-trained weights paths
         parser.add_argument(
+            "--big_model_weights_path",
+            type=str,
+            default="/content/imagenet_resnet50.pth",
+            help="Path to ImageNet pre-trained weights for big model"
+        )
+        parser.add_argument(
             "--moco_weights_path",
             type=str,
             default="/content/moco_v1_200ep_pretrain.pth.tar",
@@ -55,26 +61,36 @@ class Config:
         parser.add_argument(
             "--target_samples_per_class_ratio",
             type=float,
-            default=0.1,  # Default value (10% of samples per class)
+            default=0.9,  # Default value (10% of samples per class)
             help="Ratio of target samples per class to subsample the dataset (0.0 to 1.0, e.g., 0.1 for 10%)"
         )
         parser.add_argument(
             '--kd_temperature', 
             type=float, 
-            default=4.0, 
+            default=8.0, 
             help='Temperature for KD loss')
         parser.add_argument(
             '--kd_alpha', 
             type=float, 
             default=0.9, 
             help='Weight for KD loss')
+
+        parser.add_argument(
+            '--kd_beta', 
+            type=float, 
+            default=0.3, 
+            help='Weight for KD loss')    
         ## Teacher model 
         parser.add_argument(
             '--big_arch', 
-            default='Split_ResNet50',
+            default='Split_densenet121',
             type=str, 
           help='teacher model architecture')
-
+        parser.add_argument(
+          '--fine_tune_teacher', 
+          action='store_true', 
+          help='Fine-tune teacher model before KD'
+          )
         parser.add_argument(
             "--mask_schedule",
             type=str,
