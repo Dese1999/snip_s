@@ -104,6 +104,12 @@ class Config:
             default=10,
             help="If mask_schedule is every_n_epochs, compute mask every n epochs"
         )
+        parser.add_argument(
+            "--epochs_fine_tune",
+            default=20,
+            type=int,
+            help="Number of epochs to fine-tune the teacher model"
+        )
         # Arguments for SNIP, SNIPit, and SNAPit
         parser.add_argument(
             "--prune_criterion",
