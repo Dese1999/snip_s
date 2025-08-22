@@ -8,7 +8,17 @@ from utils.eval_utils import accuracy
 from utils.logging import AverageMeter, ProgressMeter
 #from utils.pruning import apply_reg, update_reg
 import matplotlib.pyplot as plt
+# Training function
+import random
+import torch
+import torch.nn.functional as F
+from torchvision.transforms import v2 as transforms_v2
+from utils import net_utils
+from layers.CS_KD import KDLoss
+from utils.eval_utils import accuracy
+from utils.logging import AverageMeter, ProgressMeter
 
+from configs.base_config import Config
 
 __all__ = ["train", "validate"]
 
@@ -25,7 +35,19 @@ def set_bn_train(m):
         m.train()
                 
         
-# Training function
+
+__all__ = ["train", "validate"]
+
+kdloss = KDLoss(4).cuda()
+
+def set_bn_eval(m):
+    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):        
+        m.eval()
+
+def set_bn_train(m):
+    if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+        m.train()
+
 def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=None):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
@@ -39,11 +61,11 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
     )
 
     model.train()
-    batch_size = train_loader.batch_size
-    num_batches = len(train_loader)
-    end = time.time()
+    
+    cutmix = transforms_v2.CutMix(num_classes=cfg.num_cls)
+    cutmix_prob = 0.5  
 
-    kdloss = KDLoss(4).cuda()
+    end = time.time()
 
     for i, data in enumerate(train_loader):
         images, target = data[0].cuda(), data[1].long().squeeze().cuda()
@@ -64,8 +86,15 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
         else:
             batch_size = images.size(0)
             loss_batch_size = batch_size
-            output = model(images)
-            loss = criterion(output, target)
+            if random.random() < cutmix_prob:
+                mixed_images, mixed_target = cutmix(images, target)
+                input_images = mixed_images
+            else:
+                input_images = images
+                mixed_target = F.one_hot(target, num_classes=cfg.num_cls).float()
+
+            output = model(input_images)
+            loss = F.kl_div(F.log_softmax(output, dim=1), mixed_target, reduction='batchmean')
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
         losses.update(loss.item(), loss_batch_size)
@@ -83,8 +112,8 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % cfg.print_freq == 0 or i == num_batches - 1:
-            t = (num_batches * epoch + i) * batch_size
+        if i % cfg.print_freq == 0 or i == len(train_loader) - 1:
+            t = (len(train_loader) * epoch + i) * batch_size
             progress.display(i)
             progress.write_to_tensorboard(writer, prefix="train", global_step=t)
 
