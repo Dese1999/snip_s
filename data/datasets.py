@@ -14,8 +14,6 @@ from utils import augmentations as aug
 from data.Dataloader_analysis.cifar10_noisy import CIFAR10ImbalancedNoisy
 from data.Dataloader_analysis.cifar100_noisy import CIFAR100ImbalancedNoisy
 # from data.Dataloader_analysis.tiny_imgenet_noisy import TinyImageNet_noisy
-from datasets import load_dataset  #
-
 from configs.base_config import Config
 
 cfg = Config().parse(None)
