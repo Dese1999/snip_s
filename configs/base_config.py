@@ -115,7 +115,7 @@ class Config:
             "--prune_criterion",
             type=str,
             default="SNIP",
-            choices=["SNIP", "SNIPit", "SNAPit"],
+            choices=["SNIP", "SNIPit", "SNAPit", "CNIPit"],
             help="Pruning criterion to use: SNIP (single-shot), SNIPit (iterative unstructured), SNAPit (iterative structured)"
         )
         parser.add_argument(
