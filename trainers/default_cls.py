@@ -6,39 +6,14 @@ from utils import net_utils
 from layers.CS_KD import KDLoss
 from utils.eval_utils import accuracy
 from utils.logging import AverageMeter, ProgressMeter
-#from utils.pruning import apply_reg, update_reg
 import matplotlib.pyplot as plt
-# Training function
 import random
-import torch
 import torch.nn.functional as F
 from torchvision.transforms import v2 as transforms_v2
-from utils import net_utils
-from layers.CS_KD import KDLoss
 from utils.eval_utils import accuracy
-from utils.logging import AverageMeter, ProgressMeter
-
 from configs.base_config import Config
-
 __all__ = ["train", "validate"]
 
-
-
-kdloss = KDLoss(4).cuda()
-
-def set_bn_eval(m):
-    if isinstance(m, nn.modules.batchnorm._BatchNorm):        
-        m.eval()
-
-def set_bn_train(m):
-    if isinstance(m, nn.modules.batchnorm._BatchNorm):
-        m.train()
-                
-        
-
-__all__ = ["train", "validate"]
-
-kdloss = KDLoss(4).cuda()
 
 def set_bn_eval(m):
     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):        
@@ -47,7 +22,6 @@ def set_bn_eval(m):
 def set_bn_train(m):
     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
         m.train()
-
 def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=None):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
@@ -62,8 +36,14 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
 
     model.train()
     
-    cutmix = transforms_v2.CutMix(num_classes=cfg.num_cls)
-    cutmix_prob = 0.5  
+    # Initialize CutMix with the specified number of classes
+    try:
+        cutmix = transforms_v2.CutMix(num_classes=cfg.num_cls)
+    except Exception as e:
+        cutmix = None
+
+    cutmix_prob = 0.5  # Probability of applying CutMix
+    kdloss = KDLoss(4).cuda()  # Knowledge Distillation loss
 
     end = time.time()
 
@@ -71,29 +51,53 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
         images, target = data[0].cuda(), data[1].long().squeeze().cuda()
         data_time.update(time.time() - end)
 
+        batch_size = images.size(0)
+        loss_batch_size = batch_size // 2 if cfg.cs_kd else batch_size
+
         if cfg.cs_kd:
-            batch_size = images.size(0)
-            loss_batch_size = batch_size // 2
-            targets_ = target[:batch_size // 2]
-            outputs = model(images[:batch_size // 2])
-            loss = torch.mean(criterion(outputs, targets_))
+            # Use half the batch for the main loss
+            images_main = images[:batch_size // 2]
+            targets_main = target[:batch_size // 2]
+            
+            # Check CutMix probability
+            cutmix_random = random.random()
+            
+            # Apply CutMix with specified probability
+            if cutmix_random < cutmix_prob and cutmix is not None:
+                try:
+                    images_main, targets_main_mixed = cutmix(images_main, targets_main)
+                except Exception as e:
+                    targets_main_mixed = F.one_hot(targets_main, num_classes=cfg.num_cls).float()
+            else:
+                targets_main_mixed = F.one_hot(targets_main, num_classes=cfg.num_cls).float()
+
+            # Compute output and main loss
+            outputs_main = model(images_main)
+            loss = torch.mean(criterion(outputs_main, targets_main_mixed))
+
+            # Use the other half for KD loss (without CutMix)
             with torch.no_grad():
                 outputs_cls = model(images[batch_size // 2:])
-            cls_loss = kdloss(outputs[:batch_size // 2], outputs_cls.detach())
-            lamda = 3
+            cls_loss = kdloss(outputs_main, outputs_cls.detach())
+            lamda = 2
             loss += lamda * cls_loss
-            acc1, acc5 = accuracy(outputs, targets_, topk=(1, 5))
+
+            # Compute accuracy
+            acc1, acc5 = accuracy(outputs_main, targets_main, topk=(1, 5))
         else:
-            batch_size = images.size(0)
-            loss_batch_size = batch_size
-            if random.random() < cutmix_prob:
-                mixed_images, mixed_target = cutmix(images, target)
-                input_images = mixed_images
+            # Check CutMix probability
+            cutmix_random = random.random()
+            
+            # Apply CutMix to the entire batch in non-cs_kd mode
+            if cutmix_random <= cutmix_prob and cutmix is not None:
+                try:
+                    images, mixed_target = cutmix(images, target)
+                except Exception as e:
+                    mixed_target = F.one_hot(target, num_classes=cfg.num_cls).float()
             else:
-                input_images = images
                 mixed_target = F.one_hot(target, num_classes=cfg.num_cls).float()
 
-            output = model(input_images)
+            output = model(images)
             loss = F.kl_div(F.log_softmax(output, dim=1), mixed_target, reduction='batchmean')
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
 
@@ -104,6 +108,7 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
         optimizer.zero_grad()
         loss.backward()
         if mask is not None:
+            # Apply mask to gradients for weights (excluding batch norm and downsample layers)
             for (name, param), mask_param in zip(model.named_parameters(), mask.parameters()):
                 if param.grad is not None and 'weight' in name and 'bn' not in name and 'downsample' not in name:
                     param.grad = param.grad * mask_param
