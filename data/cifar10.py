@@ -145,7 +145,7 @@ class CIFAR10val:
                 trainset, batch_size=batch_size, shuffle=False,
                 sampler=train_sampler, num_workers=num_workers, pin_memory=True)
 
-        # برای val_loader، نیازی به sampler نیست چون valset خودش زیرمجموعه است
+        
         self.val_loader = DataLoader(
             valset, batch_size=batch_size, shuffle=False,
             num_workers=num_workers, pin_memory=True)
