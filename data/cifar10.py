@@ -7,6 +7,7 @@ from PIL import ImageOps, ImageFilter
 import numpy as np
 import torchvision.transforms as transforms
 from torchvision.transforms import InterpolationMode
+from .datasets import PairBatchSampler, DatasetWrapper
 
 
 class GaussianBlur(object):
@@ -71,6 +72,8 @@ class CIFAR10:
         self.val_loader = self.tst_loader  # Validation loader is same as test loader in this case
         self.num_classes = 10  # Number of classes in CIFAR-10
 
+
+
 class CIFAR10val:
     def __init__(self, cfg):
         # Configuration parameters
@@ -103,15 +106,23 @@ class CIFAR10val:
         full_trainset = torchvision.datasets.CIFAR10(
             root=data_dir, train=True, download=True, transform=transform_train)
 
+        # Wrap dataset with DatasetWrapper
+        full_trainset = DatasetWrapper(full_trainset)
+
         # Split data into train/val
-        val_size = int(0.1 * len(full_trainset))  # 10% for validation
-        train_size = len(full_trainset) - val_size
-        indices = torch.randperm(len(full_trainset))
-        train_indices, val_indices = indices[:train_size], indices[train_size:]
+        val_size = int(0.1 * len(full_trainset))  # 5000 samples
+        train_size = len(full_trainset) - val_size  # 45000 samples
+        indices = torch.randperm(len(full_trainset)).tolist()
+        train_indices = indices[:train_size]
+        val_indices = indices[train_size:]
 
         # Reduce training data to 10% (after initial split)
-        reduced_train_size = int(train_size * reduced_train_ratio)
+        reduced_train_size = int(train_size * reduced_train_ratio)  # 4500 samples
         train_indices = train_indices[:reduced_train_size]
+
+        # Create reduced trainset and valset
+        trainset = DatasetWrapper(full_trainset, indices=train_indices)
+        valset = DatasetWrapper(full_trainset, indices=val_indices)
 
         # Load test data
         testset = torchvision.datasets.CIFAR10(
@@ -119,17 +130,25 @@ class CIFAR10val:
 
         # Create samplers
         sampler_type = "pair" if cfg.cs_kd else "default"
-        train_sampler = SubsetRandomSampler(train_indices) if sampler_type == "default" else None
-        val_sampler = SubsetRandomSampler(val_indices)
+        if sampler_type == "pair":
+            train_sampler = PairBatchSampler(trainset, batch_size, num_iterations=None)
+        else:
+            train_sampler = SubsetRandomSampler(train_indices)
 
         # Create DataLoaders
-        self.train_loader = DataLoader(
-            full_trainset, batch_size=batch_size, shuffle=False,
-            sampler=train_sampler, num_workers=num_workers, pin_memory=True)
+        if sampler_type == "pair":
+            self.train_loader = DataLoader(
+                trainset, shuffle=False,
+                batch_sampler=train_sampler, num_workers=num_workers, pin_memory=True)
+        else:
+            self.train_loader = DataLoader(
+                trainset, batch_size=batch_size, shuffle=False,
+                sampler=train_sampler, num_workers=num_workers, pin_memory=True)
 
+        # برای val_loader، نیازی به sampler نیست چون valset خودش زیرمجموعه است
         self.val_loader = DataLoader(
-            full_trainset, batch_size=batch_size, shuffle=False,
-            sampler=val_sampler, num_workers=num_workers, pin_memory=True)
+            valset, batch_size=batch_size, shuffle=False,
+            num_workers=num_workers, pin_memory=True)
 
         self.tst_loader = DataLoader(
             testset, batch_size=batch_size, shuffle=False,
@@ -138,6 +157,6 @@ class CIFAR10val:
         self.num_classes = 10
 
         # Print dataset information
-        print(f"Training samples count: {len(train_indices)}")
-        print(f"Validation samples count: {len(val_indices)}")
+        print(f"Training samples count: {len(trainset)}")
+        print(f"Validation samples count: {len(valset)}")
         print(f"Test samples count: {len(testset)}")
