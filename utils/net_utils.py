@@ -21,18 +21,99 @@ def create_dense_mask_0(net, device, value):
     return net
 
 
-def get_model(args):
+# def get_model(args):
 
-    args.logger.info("=> Creating model '{}'".format(args.arch))
-    # args.logger.info("=> Creating model_2 '{}'".format(args.arch_2))
+#     args.logger.info("=> Creating model '{}'".format(args.arch))
+#     # args.logger.info("=> Creating model_2 '{}'".format(args.arch_2))
     
-    if args.arch == 'resnet18':
-        model = models.__dict__[args.arch]()
-    else:
-        model = models.__dict__[args.arch](args)
-        if args.set =="CIFAR100" or args.set =='CIFAR10':
-            model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
-            model.maxpool = nn.Identity()
+#     if args.arch == 'resnet18':
+#         model = models.__dict__[args.arch]()
+#     else:
+#         model = models.__dict__[args.arch](args)
+#         if args.set =="CIFAR100" or args.set =='CIFAR10':
+#             model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+#             model.maxpool = nn.Identity()
+
+#     return model
+
+
+def get_model(args):
+    args.logger.info("=> Creating model '{}'".format(args.arch))
+
+    # 1. Create base model
+    model = models.__dict__[args.arch](args)
+
+    # 2. CIFAR-specific adjustments
+    if args.set in ["CIFAR100", "CIFAR10"]:
+        model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        model.maxpool = nn.Identity()
+
+    # 3. Load pre-trained weights based on method (MoCo, DINO, SimSiam)
+    pretrain_method = args.pretrain_method.lower() if hasattr(args, 'pretrain_method') else None
+    weights_loaded = False
+
+    if pretrain_method in ['moco', 'dino', 'simsiam']:
+        # Define paths for each method
+        if pretrain_method == 'moco':
+            weights_path = "/content/moco_v1_200ep_pretrain.pth.tar"
+            logger_msg = "MoCo"
+        elif pretrain_method == 'dino':
+            weights_path = args.dino_weights_path
+            logger_msg = "DINO"
+        elif pretrain_method == 'simsiam':
+            weights_path = args.simsiam_weights_path
+            logger_msg = "SimSiam"
+
+        try:
+            # Check if file exists
+            if not os.path.exists(weights_path):
+                args.logger.error(f"{logger_msg} weights file not found at {weights_path}")
+                raise FileNotFoundError(f"{logger_msg} weights file not found")
+
+            # Load checkpoint
+            checkpoint = torch.load(weights_path, map_location='cpu', weights_only=False)
+
+            # Get state dict
+            state_dict = checkpoint['state_dict'] if 'state_dict' in checkpoint else checkpoint
+
+            # Convert layer names for compatibility (remove 'module.' prefix if present)
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                if k.startswith('module.'):
+                    k = k[7:]  # Remove 'module.' prefix
+                new_state_dict[k] = v
+
+            # Remove unnecessary layers
+            keys_to_remove = ['fc.weight', 'fc.bias']
+            for k in keys_to_remove:
+                new_state_dict.pop(k, None)
+
+            # Load weights into model
+            model.load_state_dict(new_state_dict, strict=False)
+            args.logger.info(f"Successfully loaded {logger_msg} weights")
+
+            # Initialize SE blocks if present
+            for name, module in model.named_modules():
+                if 'se' in name.lower() and hasattr(module, 'weight') and module.weight is not None:
+                    nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
+                    if hasattr(module, 'bias') and module.bias is not None:
+                        nn.init.constant_(module.bias, 0)
+                    args.logger.info(f"Initialized SE block: {name}")
+
+            args.logger.info(f"Successfully loaded {logger_msg} weights with SE blocks initialized")
+            weights_loaded = True
+
+        except Exception as e:
+            args.logger.error(f"Failed to load {logger_msg} weights: {str(e)}")
+            args.logger.info("Using randomly initialized model instead")
+
+    # If no pretrain method specified or loading failed, use random initialization
+    if not weights_loaded:
+        args.logger.info("No pretrain method specified or loading failed; using random initialization")
+
+    # 4. Configure output layer
+    in_features = model.fc.in_features if hasattr(model.fc, 'in_features') else 512
+    model.fc = nn.Linear(in_features, args.num_cls)
 
     return model
 
