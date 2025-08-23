@@ -12,8 +12,12 @@ import torch.nn.functional as F
 from torchvision.transforms import v2 as transforms_v2
 from utils.eval_utils import accuracy
 from configs.base_config import Config
-__all__ = ["train", "validate"]
+# import logging
+# # Configure logging
+# logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# logger = logging.getLogger(__name__)
 
+__all__ = ["train", "validate"]
 
 def set_bn_eval(m):
     if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):        
@@ -46,7 +50,6 @@ def train(train_loader, model, criterion, optimizer, epoch, cfg, writer, mask=No
     kdloss = KDLoss(4).cuda()  # Knowledge Distillation loss
 
     end = time.time()
-
     for i, data in enumerate(train_loader):
         images, target = data[0].cuda(), data[1].long().squeeze().cuda()
         data_time.update(time.time() - end)
