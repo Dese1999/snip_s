@@ -328,7 +328,7 @@ def get_optimizer(args, model,fine_tune=False,criterion=None):
 
     return optimizer
     ##############################################################################
-def ke_cls_train_fish(cfg, model, generation, fisher_mat):
+def ke_cls_train_fish(cfg, model, generation, fisher_mat, teacher_model=None):
     if cfg.seed is not None and cfg.fix_seed:
         random.seed(cfg.seed)
         torch.manual_seed(cfg.seed)
