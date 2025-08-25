@@ -159,7 +159,8 @@ class ConcatWrapper(Dataset): # TODO: Naming
         warnings.warn("cummulative_sizes attribute is renamed to "
                       "cumulative_sizes", DeprecationWarning, stacklevel=2)
         return self.cumulative_sizes
-
+        
+def load_dataset(name, root, sample='default', **kwargs):
 # Dataset
     if name in ['CIFAR10', 'CIFAR10val']:
         transform_train = transforms.Compose([
