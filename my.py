@@ -34,7 +34,7 @@ def get_trainer(cfg):
     return trainer.train, trainer.validate
 
 # Function to train the model for a single generation
-def train_dense(cfg, generation, model=None, fisher_mat=None):
+def train_dense(cfg, generation, model=None, fisher_mat=None, teacher_model=None):
     if model is None:
         model = net_utils.get_model(cfg)
         if cfg.use_pretrain:
@@ -47,6 +47,14 @@ def train_dense(cfg, generation, model=None, fisher_mat=None):
             net_utils.split_reinitialize(cfg, model, reset_hypothesis=cfg.reset_hypothesis)
 
     model = net_utils.move_model_to_gpu(cfg, model)
+
+    # save teacher model in gen1
+    if generation == 0:
+        teacher_model = deepcopy(model)  # copy model as reacher
+        teacher_model.eval()  # evaluate mode
+        torch.save(teacher_model.state_dict(), os.path.join(cfg.exp_dir, f"teacher_model.pth"))
+        cfg.logger.info(f"Teacher model (generation 0) saved at {cfg.exp_dir}/teacher_model.pth")
+
 
     if cfg.save_model:
         run_base_dir, ckpt_base_dir, log_base_dir = path_utils.get_directories(cfg, generation)
@@ -62,7 +70,8 @@ def train_dense(cfg, generation, model=None, fisher_mat=None):
 
     if cfg.reset_important_weights:
         if cfg.prune_criterion in ["SNIP", "SNIPit", "SNAPit"  , "CNIPit"]:
-            ckpt_path, fisher_mat, model, epoch_metrics = KE_model.ke_cls_train_fish(cfg, model, generation, fisher_mat)
+            ckpt_path, fisher_mat, model, epoch_metrics = KE_model.ke_cls_train_fish(cfg, model, generation, fisher_mat, teacher_model=teacher_model)
+            #ckpt_path, fisher_mat, model, epoch_metrics = KE_model.ke_cls_train_fish(cfg, model, generation, fisher_mat)
             sparse_model = net_utils.extract_sparse_weights(cfg, model, fisher_mat)
             tst_acc1, tst_acc5 = KE_model.ke_cls_eval_sparse(cfg, sparse_model, generation, ckpt_path, 'acc_pruned_model.csv')
             model = net_utils.reparameterize_non_sparse(cfg, model, fisher_mat)
@@ -72,7 +81,7 @@ def train_dense(cfg, generation, model=None, fisher_mat=None):
             epoch_metrics['test_acc1'][-1] = tst_acc1_reinit
             epoch_metrics['test_acc5'][-1] = tst_acc5_reinit
         else:
-            ckpt_path, fisher_mat, model, epoch_metrics = KE_model.ke_cls_train_fish(cfg, model, generation, fisher_mat)
+            ckpt_path, fisher_mat, model, epoch_metrics = KE_model.ke_cls_train_fish(cfg, model, generation, fisher_mat,teacher_model=teacher_model)
             sparse_mask, dict_FIM = net_utils.extract_new_sparse_model(cfg, model, fisher_mat, generation)
             torch.save(sparse_mask.state_dict(), os.path.join(cfg.exp_dir, f"sparse_mask_{generation}.pth"))
             np.save(os.path.join(cfg.exp_dir, f"FIM_{generation}.npy"), fisher_mat.cpu().detach().numpy())
@@ -83,10 +92,13 @@ def train_dense(cfg, generation, model=None, fisher_mat=None):
     else:
         ckpt_base_dir, model, epoch_metrics = KE_model.ke_cls_train(cfg, model, generation)
         sparse_mask = net_utils.create_dense_mask_0(deepcopy(model), cfg.device, value=1)
-
+    # save student model for next gen
+    torch.save(model.state_dict(), os.path.join(cfg.exp_dir, f"student_model_gen_{generation}.pth"))
+    cfg.logger.info(f"Student model (generation {generation}) saved at {cfg.exp_dir}/student_model_gen_{generation}.pth")
+    
     non_overlapping_sparsemask = net_utils.create_dense_mask_0(deepcopy(model), cfg.device, value=0)
 
-    return model, fisher_mat, sparse_mask, epoch_metrics
+    return model, fisher_mat, sparse_mask, epoch_metrics, teacher_model
 
 # Function to calculate the percentage overlap between previous and current masks
 def percentage_overlap(prev_mask, curr_mask, percent_flag=False):
@@ -113,6 +125,7 @@ def start_KE(cfg):
     ckpt_queue = []
     model = None
     fish_mat = None
+    teacher_model = None
 
     weights_history = {
         'conv1': [], 'layer1.0.conv1': [], 'layer2.0.conv1': [],
@@ -123,7 +136,28 @@ def start_KE(cfg):
 
     for gen in range(cfg.num_generations):
         cfg.start_epoch = 0
-        model, fish_mat, sparse_mask, epoch_metrics = train_dense(cfg, gen, model=model, fisher_mat=fish_mat)
+        # load student model from prevuce gen
+        if gen > 0 and model is not None:
+            model = net_utils.get_model(cfg)
+            model_path = os.path.join(cfg.exp_dir, f"student_model_gen_{gen-1}.pth")
+            if os.path.exists(model_path):
+                model.load_state_dict(torch.load(model_path))
+                cfg.logger.info(f"Loaded student model from generation {gen-1} at {model_path}")
+        
+        # load teacher model
+        if gen > 0:
+            teacher_model = net_utils.get_model(cfg)
+            teacher_path = os.path.join(cfg.exp_dir, f"teacher_model.pth")
+            if os.path.exists(teacher_path):
+                teacher_model.load_state_dict(torch.load(teacher_path))
+                teacher_model.eval()
+                teacher_model = net_utils.move_model_to_gpu(cfg, teacher_model)
+                cfg.logger.info(f"Loaded teacher model from {teacher_path}")
+        
+        model, fish_mat, sparse_mask, epoch_metrics, teacher_model = train_dense(
+            cfg, gen, model=model, fisher_mat=fish_mat, teacher_model=teacher_model)
+
+
 
         # Store weights
         weights_history['conv1'].append(model.conv1.weight.data.clone().cpu().numpy().flatten())
