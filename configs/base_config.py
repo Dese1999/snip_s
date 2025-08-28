@@ -114,7 +114,7 @@ class Config:
         parser.add_argument(
             "--prune_criterion",
             type=str,
-            default="SNIP",
+            default="SNIPit",
             choices=["SNIP", "SNIPit", "SNAPit", "CNIPit"],
             help="Pruning criterion to use: SNIP (single-shot), SNIPit (iterative unstructured), SNAPit (iterative structured)"
         )
@@ -236,14 +236,14 @@ class Config:
         parser.add_argument(
             "--lr",
             "--learning-rate",
-            default=0.253,
+            default=0.001,
             type=float,
             metavar="LR",
             help="initial learning rate",
             dest="lr",
         )
         parser.add_argument(
-            "--warmup_length", default=20, type=int, help="Number of warmup iterations"
+            "--warmup_length", default=5, type=int, help="Number of warmup iterations"
         )
         parser.add_argument(
             "--momentum", default=0.9, type=float, metavar="M", help="momentum"
@@ -260,16 +260,16 @@ class Config:
         parser.add_argument(
             "-p",
             "--print-freq",
-            default=10000,
+            default=100,
             type=int,
             metavar="N",
             help="print frequency",
         )
-        parser.add_argument('--samples_per_class', default=1, type=int,
+        parser.add_argument('--samples_per_class', default=2, type=int,
                             help='Number of samples per class inside a mini-batch.')
-        parser.add_argument('--alpha', default=32, type=float,
+        parser.add_argument('--alpha', default=8, type=float,
                             help='Scaling Parameter setting')
-        parser.add_argument('--warm', default=1, type=int,
+        parser.add_argument('--warm', default=5, type=int,
                             help='Warmup training epochs')
         parser.add_argument(
             "--resume",
@@ -298,10 +298,10 @@ class Config:
             help="use pre-trained model",
         )
         parser.add_argument(
-            "--seed", default=None, type=int, help="need to set fix_seed = True to take effect"
+            "--seed", default=42, type=int, help="need to set fix_seed = True to take effect"
         )
         parser.add_argument(
-            "--fix_seed", action="store_true", help="Fix random seed"
+            "--fix_seed",default=True, action="store_true", help="Fix random seed"
         )
         parser.add_argument(
             "--gpu",
@@ -314,7 +314,7 @@ class Config:
         )
         # Learning Rate Policy Specific
         parser.add_argument(
-            "--lr_policy", default="cosine_lr", help="Policy for the learning rate."
+            "--lr_policy", default="long_cosine_lr", help="Policy for the learning rate."
         )
         parser.add_argument(
             "--multistep-lr-adjust", default=1, type=int, help="Interval to drop lr"
@@ -330,7 +330,7 @@ class Config:
             "--save_every", default=-1, type=int, help="Save every ___ epochs"
         )
         parser.add_argument(
-            "--num_generations", default=11, type=int, help="Number of training generations"
+            "--num_generations", default=10, type=int, help="Number of training generations"
         )
         parser.add_argument('--lr-decay-step', default=10, type=int, help='Learning decay step setting')
         parser.add_argument('--lr-decay-gamma', default=0.5, type=float, help='Learning decay gamma setting')
@@ -343,7 +343,7 @@ class Config:
         )
         parser.add_argument(
             "--sparsity",
-            default=0.2,
+            default=0.5,
             help="What is the split-rate for the split-network weights?",
             type=float,
         )
