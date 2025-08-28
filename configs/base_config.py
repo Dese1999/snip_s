@@ -72,13 +72,13 @@ class Config:
         parser.add_argument(
             '--kd_alpha', 
             type=float, 
-            default=0.9, 
+            default=0.7, 
             help='Weight for KD loss')
 
         parser.add_argument(
             '--kd_beta', 
             type=float, 
-            default=0.1, 
+            default=0.3, 
             help='Weight for KD loss')    
         ## Teacher model 
         parser.add_argument(
@@ -206,7 +206,7 @@ class Config:
         )
         parser.add_argument(
             "--eval_intermediate_tst",
-            default=0,
+            default=10,
             type=int,
             help="eval tst every N epochs instead of evaluating at the end of each generation",
         )
