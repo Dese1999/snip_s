@@ -61,13 +61,13 @@ class Config:
         parser.add_argument(
             "--target_samples_per_class_ratio",
             type=float,
-            default=0.9,  # Default value (10% of samples per class)
+            default=0.5,  # Default value (50% of samples per class)
             help="Ratio of target samples per class to subsample the dataset (0.0 to 1.0, e.g., 0.1 for 10%)"
         )
         parser.add_argument(
             '--kd_temperature', 
             type=float, 
-            default=8.0, 
+            default=4.0, 
             help='Temperature for KD loss')
         parser.add_argument(
             '--kd_alpha', 
@@ -78,7 +78,7 @@ class Config:
         parser.add_argument(
             '--kd_beta', 
             type=float, 
-            default=0.3, 
+            default=0.1, 
             help='Weight for KD loss')    
         ## Teacher model 
         parser.add_argument(
@@ -199,7 +199,7 @@ class Config:
         )
         parser.add_argument(
             "--epochs",
-            default=200,
+            default=100,
             type=int,
             metavar="N",
             help="number of total epochs to run",
@@ -228,7 +228,7 @@ class Config:
         parser.add_argument(
             "-b",
             "--batch_size",
-            default=256,
+            default=128,
             type=int,
             metavar="N",
             help="mini-batch size",
@@ -260,12 +260,12 @@ class Config:
         parser.add_argument(
             "-p",
             "--print-freq",
-            default=100,
+            default=20,
             type=int,
             metavar="N",
             help="print frequency",
         )
-        parser.add_argument('--samples_per_class', default=2, type=int,
+        parser.add_argument('--samples_per_class', default=1, type=int,
                             help='Number of samples per class inside a mini-batch.')
         parser.add_argument('--alpha', default=8, type=float,
                             help='Scaling Parameter setting')
