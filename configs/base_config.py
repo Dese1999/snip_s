@@ -59,6 +59,12 @@ class Config:
         )
         # KDloss
         parser.add_argument(
+            "--transition_to_cs_kd",
+            action="store_true",
+            default=False,
+            help="Enable transition to clustered sampling knowledge distillation"
+        )
+        parser.add_argument(
             "--target_samples_per_class_ratio",
             type=float,
             default=0.5,  # Default value (50% of samples per class)
