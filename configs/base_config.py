@@ -266,7 +266,7 @@ class Config:
         parser.add_argument(
             "-p",
             "--print-freq",
-            default=20,
+            default=1000,
             type=int,
             metavar="N",
             help="print frequency",
